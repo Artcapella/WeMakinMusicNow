@@ -64,13 +64,15 @@ class MidiEditor:
 
 
 if __name__ == "__main__":
-    editor = MidiEditor('ShutDownDefault.mid')
+    editor = MidiEditor('CatherineViolinString.mid')
 
-    # 1. Range → new instrument (Acoustic Guitar program=24)
-    #editor.change_range_to_instrument(60, 72, new_program=24)
+    # Range → new instrument (Acoustic Guitar program=24)
+    #editor.change_range_to_instrument(0, 140, new_program=14)
 
-    # 2. Swap program 0 → 40 (Violin)
-    #editor.swap_instrument(0, 40)
+    # swap violin to string ensemble
+    editor.swap_instrument(from_program=40, to_program=48)
+    # swap cello to grand piano
+    editor.swap_instrument(from_program=42, to_program=0)
 
     # 3. Remove notes from program 40 with pitch >80
     #editor.remove_notes_above(40, 80)
@@ -83,12 +85,12 @@ if __name__ == "__main__":
 
     #editor.remove_outside_instrument(valid_programs=[40, 42])  # Keep only Violin and Cello
 
-    # remove non 909 drum notes
-    editor.remove_outside_instrument(valid_programs=[0, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35])
+    # remove non koto notes
+    #editor.remove_instrument(106)
 
 
     # Save before Mido edits
     editor.save_pretty_midi('staged.mid')
 
     # 4. Clean CC64 and save final
-    editor.clean_control_changes('staged.mid', 'ShutDownDrums.mid', control=64)
+    editor.clean_control_changes('staged.mid', 'CatherineStringCello.mid', control=64)

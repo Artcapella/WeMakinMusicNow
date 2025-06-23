@@ -1,6 +1,6 @@
-# plays MIDI files at specified BPM with actual audio output
-import pretty_midi
-from mido import MidiFile, MidiTrack
+# plays MIDI files at specified BPM with actual audio output (Fixed version without FluidSynth)
+import mido
+from mido import MidiFile, MidiTrack, MetaMessage
 import time
 import threading
 import os
@@ -19,6 +19,7 @@ class MIDIPlayer:
         self.pause_time = 0
         self.current_position = 0
         self.current_file_path = None
+        self.duration = 0
         
         # Initialize pygame mixer for audio playback
         try:
@@ -40,25 +41,50 @@ class MIDIPlayer:
             # Store the file path for pygame playback
             self.current_file_path = file_path
             
-            # Load with pretty_midi for better tempo handling
-            self.midi_data = pretty_midi.PrettyMIDI(file_path)
+            # Load with mido
+            self.midi_data = mido.MidiFile(file_path)
             
-            # Get original tempo (BPM)
-            tempo_changes = self.midi_data.get_tempo_changes()
-            if len(tempo_changes[1]) > 0:
-                self.original_bpm = tempo_changes[1][0]
-            else:
-                self.original_bpm = 120  # Default BPM
-            
+            # Get original tempo (BPM) from MIDI file
+            self.original_bpm = self._extract_bpm_from_midi()
             self.current_bpm = self.original_bpm
+            
+            # Calculate duration
+            self.duration = self._calculate_duration()
+            
             print(f"Loaded MIDI file: {file_path}")
             print(f"Original BPM: {self.original_bpm}")
-            print(f"Duration: {self.midi_data.get_end_time():.2f} seconds")
+            print(f"Duration: {self.duration:.2f} seconds")
             return True
             
         except Exception as e:
             print(f"Error loading MIDI file: {e}")
             return False
+    
+    def _extract_bpm_from_midi(self):
+        """Extract BPM from MIDI file using mido."""
+        for track in self.midi_data.tracks:
+            for msg in track:
+                if msg.type == 'set_tempo':
+                    # Convert microseconds per beat to BPM
+                    return 60000000 / msg.tempo
+        return 120  # Default BPM if no tempo found
+    
+    def _calculate_duration(self):
+        """Calculate the duration of the MIDI file in seconds."""
+        if not self.midi_data:
+            return 0
+        
+        total_ticks = 0
+        for track in self.midi_data.tracks:
+            track_ticks = sum(msg.time for msg in track)
+            total_ticks = max(total_ticks, track_ticks)
+        
+        # Convert ticks to seconds using ticks_per_beat and BPM
+        ticks_per_beat = self.midi_data.ticks_per_beat
+        beats_per_second = self.original_bpm / 60
+        ticks_per_second = ticks_per_beat * beats_per_second
+        
+        return total_ticks / ticks_per_second if ticks_per_second > 0 else 0
     
     def set_bpm(self, bpm):
         """Set the playback BPM."""
@@ -126,7 +152,7 @@ class MIDIPlayer:
             return
             
         tempo_ratio = self.get_tempo_ratio()
-        total_duration = self.midi_data.get_end_time() * tempo_ratio
+        total_duration = self.duration * tempo_ratio
         
         while self.is_playing:
             if not self.is_paused:
@@ -195,7 +221,7 @@ class MIDIPlayer:
         }
         
         if self.midi_data:
-            status['duration'] = self.midi_data.get_end_time() * self.get_tempo_ratio()
+            status['duration'] = self.duration * self.get_tempo_ratio()
             status['file_loaded'] = True
             status['file_name'] = os.path.basename(self.current_file_path) if self.current_file_path else "Unknown"
         else:
@@ -211,7 +237,7 @@ class MIDIPlayer:
             print("No MIDI file loaded.")
             return False
         
-        max_duration = self.midi_data.get_end_time() * self.get_tempo_ratio()
+        max_duration = self.duration * self.get_tempo_ratio()
         if position < 0 or position > max_duration:
             print(f"Position must be between 0 and {max_duration:.2f} seconds.")
             return False
@@ -276,8 +302,8 @@ def main():
     """Enhanced MIDI Player with file selection."""
     player = MIDIPlayer()
     
-    print("🎵 Enhanced MIDI Player 🎵")
-    print("=" * 30)
+    print("🎵 Enhanced MIDI Player (FluidSynth-Free) 🎵")
+    print("=" * 45)
     
     # Let user select a MIDI file
     selected_file = select_midi_file()
